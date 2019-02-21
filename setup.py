@@ -18,7 +18,7 @@ requirements = [
 
 test_requirements = [
     'coverage==4.1',
-    'PyYAML==3.11',
+    'pyyaml==4.2b4',
     'pytest==2.9.2',
     'mock>=2.0.0',
     'prospector==1.1.6.2',
@@ -35,11 +35,11 @@ exec(open(version_filename).read(), None, metadata)
 setup(
     name='functionapprest',
     version=metadata['__version__'],
-    description="pico framework for azure functions with optional json schema validation",
+    description="Micro framework for azure functions with optional json schema validation",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author='Eduardo Rodrigues',
-    author_email='',
+    author=metadata['__author__'],
+    author_email=metadata['__email__'],
     url='https://github.com/eduardomourar/python-functionapprest',
     packages=[
         'functionapprest',

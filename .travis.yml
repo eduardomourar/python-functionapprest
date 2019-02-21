@@ -27,14 +27,14 @@ after_success:
 - git fetch origin
 
 deploy:
-  - provider: pypi
-    skip_cleanup: true
-    distributions: sdist
-    user: eduardomourar
-    password:
-      secure: DmfiiGDMdq1Kgv/i1h8MVuH6QV4cYwSFuslq1BtVLFkwkDeX/s3pFMc7u3xFjaUFdOeWknVBxM0t+c+TRviUyIKGrgDDJM5kMn83h6GgKJ+J+LDVBRVV7/8Zth+yS8vPQWd8cS/t1Nyk2qa92L1X1Z+uNl+/dZa/hLNPAT14QLCdMjniX42J5STCgeBDtKKIXDfrvU9MDFk7n5Asj7Lwi5Nj//YPh2SD95ii6O7fY1BeJQ8aYOqJbfkLD/YDQC5cvpS2A2bwdZWWX0cOrVqix1X6jj0M7CHiCd8rlU9TbqLB1BTo6M7TqwBYmmzdcfJz3IpzWM3SEUHehKPAAZeLzKWzMdeIDUL5yOGFR+7vmfoY5nx3PnskXXV6IbEVYqcLZfn1tEFpz3R++ww4cPPtpaMvEquTXSAoT/m63/YGb17oXq4yLXcTDMv4O2Ka8qWDIGxr6vIorlxRFS+B1nEjhEVVAC6FqJ9mCW8hr4YuDhZweOoPKnBTzYhZgmRO0sfh6L0eiUaIQaNR0/Gfdua0UcCgB0QrH+21jP0zmiONoqsCOMJB7zHWr8yiKQMOEj5J+p561MNrMlqcYfnOGpvuZmvRbzKNj9JZXUgnWZG6IPQxwYeqkkmGzCWVmS4bRTlbvNL7jDprInWWxbdhNhwkiI7bp++BvJDGMYQcNs/LplY=
-    on:
-      tags: false
-      branch: master
-      repo: eduardomourar/python-functionapprest
-      condition: $TRAVIS_PYTHON_VERSION = "3.6"
+  provider: pypi
+  skip_cleanup: true
+  distributions: sdist
+  user: eduardomourar
+  password:
+    secure: "Pfot8UXgkEgPv/QIzKlYetssoZSZSTZSSF0+Qq+7ySznethSt4ysMl3PsBYcju2sZAJkG4pQ37UpxIqoQ0Ni3iTUJO9DH0nQ/K/5G0mnXlMWTe/VjFwzTqXSmTAi85cdZsKHX2xW/efIBseB11SuxAdd30N4RS2nPoGEBM0JVY9oKNGAMqBxQJHoGMmrMHAuUzv8H5h1Tk7HwAe6GfD9MtFLfw2onuat9SZVqsdeNlMAu3F+t6AO4+esrrZXY0uM/KfdMWC84A14vXQSf5zpri9B/j/1Y/UZIDTr/B21PJFRg6VZ9AUkNT9mW6jpb7GjGblCKayzbpM2CY39ryj6G/37f5+XlbeDFrSBHK9r/nKXL7rvRrfoJwi9gux9zuoMaW+9jLqz3tQFCmamw6vCaqaOGMsc/JMBA1RJiQan1xKDzrNGFNo4erYhvEeaUhWXJuddFT7u2P6T4SE2xyXIL11pjuST508JJqy1u7Gwwuo6L/ocFCPEEz8wp+0efawPnyaDVGat7PcDW3prgHg7/FVfmeOOXBlJ30+h80gVfVu4FX3QRW5ISeBSWfGjOdSm41gUHgvHO2V9VdD7ib1vx4fg4mI4z2Z5uSTg1Guaklytk6aWGnb+7bjyc8QcnERmZlShyxBilaxl/IT4ttUW6igBfEE2VZyQAD9CLmZcMpA="
+  on:
+    tags: false
+    branch: master
+    repo: eduardomourar/python-functionapprest
+    condition: $TRAVIS_PYTHON_VERSION = "3.6"

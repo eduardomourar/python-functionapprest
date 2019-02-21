@@ -23,13 +23,13 @@ def assert_called_once(mock):
 
 class TestfunctionapprestFunctions(unittest.TestCase):
     def setUp(self):
-        self.event: Request = Request('POST', '/',
+        self.event = Request('POST', '/',
             headers=None,
             params=None,
             route_params=None,
             body=None,
         )
-        self.context: FunctionsContext = FunctionsContext(
+        self.context = FunctionsContext(
             function_directory='/home/serverless/products-list',
             function_name='products-list',
             invocation_id='c9b749e6-0611-4b651-9ff0-cdd2da18f05b',
