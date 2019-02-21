@@ -1,0 +1,40 @@
+sudo: required
+
+language: python
+
+python:
+- '2.7'
+- '3.4'
+- '3.5'
+- '3.6'
+
+install:
+- pip install -U pip
+- pip install .[test]
+
+script:
+- py.test
+- prospector -M
+
+branches:
+  only: master
+
+after_success:
+- git config --global user.email "travis@travis-ci.com"
+- git config --global user.name "Travis"
+- git tag -a v$(python setup.py --version) -m "Travis build $TRAVIS_BUILD_NUMBER"
+- git push origin --tags
+- git fetch origin
+
+deploy:
+  - provider: pypi
+    skip_cleanup: true
+    distributions: sdist
+    user: eduardomourar
+    password:
+      secure: DmfiiGDMdq1Kgv/i1h8MVuH6QV4cYwSFuslq1BtVLFkwkDeX/s3pFMc7u3xFjaUFdOeWknVBxM0t+c+TRviUyIKGrgDDJM5kMn83h6GgKJ+J+LDVBRVV7/8Zth+yS8vPQWd8cS/t1Nyk2qa92L1X1Z+uNl+/dZa/hLNPAT14QLCdMjniX42J5STCgeBDtKKIXDfrvU9MDFk7n5Asj7Lwi5Nj//YPh2SD95ii6O7fY1BeJQ8aYOqJbfkLD/YDQC5cvpS2A2bwdZWWX0cOrVqix1X6jj0M7CHiCd8rlU9TbqLB1BTo6M7TqwBYmmzdcfJz3IpzWM3SEUHehKPAAZeLzKWzMdeIDUL5yOGFR+7vmfoY5nx3PnskXXV6IbEVYqcLZfn1tEFpz3R++ww4cPPtpaMvEquTXSAoT/m63/YGb17oXq4yLXcTDMv4O2Ka8qWDIGxr6vIorlxRFS+B1nEjhEVVAC6FqJ9mCW8hr4YuDhZweOoPKnBTzYhZgmRO0sfh6L0eiUaIQaNR0/Gfdua0UcCgB0QrH+21jP0zmiONoqsCOMJB7zHWr8yiKQMOEj5J+p561MNrMlqcYfnOGpvuZmvRbzKNj9JZXUgnWZG6IPQxwYeqkkmGzCWVmS4bRTlbvNL7jDprInWWxbdhNhwkiI7bp++BvJDGMYQcNs/LplY=
+    on:
+      tags: false
+      branch: master
+      repo: eduardomourar/python-functionapprest
+      condition: $TRAVIS_PYTHON_VERSION = "3.6"

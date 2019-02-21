@@ -1,0 +1,15 @@
+{
+  "python.pythonPath": "${workspaceFolder}/.venv/bin/python3",
+  "python.venvPath": "${workspaceFolder}/.venv",
+  "python.linting.pylintEnabled": true,
+  "python.linting.flake8Enabled": false,
+  "files.exclude": {
+    "obj": true,
+    "bin": true
+  },
+  "debug.internalConsoleOptions": "neverOpen",
+  "python.linting.enabled": true,
+  "python.unitTest.unittestEnabled": false,
+  "python.unitTest.nosetestsEnabled": false,
+  "python.unitTest.pyTestEnabled": true
+}
