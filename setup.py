@@ -19,7 +19,7 @@ requirements = [
 test_requirements = [
     'coverage==4.1',
     'pyyaml==4.2b4',
-    'pytest==2.9.2',
+    'pytest==4.2.1',
     'mock>=2.0.0',
     'prospector==1.1.6.2',
 ] + requirements

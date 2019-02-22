@@ -1,37 +1,42 @@
 sudo: required
-
 language: python
 dist: xenial
 python:
 - '3.6'
 - '3.7'
-
 install:
 - pip install -U pip
 - pip install .[test]
-
 script:
 - py.test
 - prospector -M
-
 branches:
   only: master
-
 after_success:
-- git config --global user.email "travis@travis-ci.com"
-- git config --global user.name "Travis"
+- git config --global user.email "builds@travis-ci.com"
+- git config --global user.name "Travis CI"
 - git tag -a v$(python setup.py --version) -m "Travis build $TRAVIS_BUILD_NUMBER"
 - git push origin --tags
 - git fetch origin
-
 deploy:
-  provider: pypi
-  skip_cleanup: true
-  distributions: sdist
-  user: eduardomourar
-  password:
-    secure: "Pfot8UXgkEgPv/QIzKlYetssoZSZSTZSSF0+Qq+7ySznethSt4ysMl3PsBYcju2sZAJkG4pQ37UpxIqoQ0Ni3iTUJO9DH0nQ/K/5G0mnXlMWTe/VjFwzTqXSmTAi85cdZsKHX2xW/efIBseB11SuxAdd30N4RS2nPoGEBM0JVY9oKNGAMqBxQJHoGMmrMHAuUzv8H5h1Tk7HwAe6GfD9MtFLfw2onuat9SZVqsdeNlMAu3F+t6AO4+esrrZXY0uM/KfdMWC84A14vXQSf5zpri9B/j/1Y/UZIDTr/B21PJFRg6VZ9AUkNT9mW6jpb7GjGblCKayzbpM2CY39ryj6G/37f5+XlbeDFrSBHK9r/nKXL7rvRrfoJwi9gux9zuoMaW+9jLqz3tQFCmamw6vCaqaOGMsc/JMBA1RJiQan1xKDzrNGFNo4erYhvEeaUhWXJuddFT7u2P6T4SE2xyXIL11pjuST508JJqy1u7Gwwuo6L/ocFCPEEz8wp+0efawPnyaDVGat7PcDW3prgHg7/FVfmeOOXBlJ30+h80gVfVu4FX3QRW5ISeBSWfGjOdSm41gUHgvHO2V9VdD7ib1vx4fg4mI4z2Z5uSTg1Guaklytk6aWGnb+7bjyc8QcnERmZlShyxBilaxl/IT4ttUW6igBfEE2VZyQAD9CLmZcMpA="
-  on:
-    tags: false
-    branch: master
-    condition: $TRAVIS_PYTHON_VERSION = "3.6"
+  - provider: pypi
+    skip_cleanup: true
+    distributions: sdist
+    user: eduardomourar
+    password:
+      secure: Xu7hwcwZYmm2p3qOlv/a1HvKT6xYaCUWgk8Bz91EJEQB/l1IoqZobwQeGmjljNr/2Ih3HTChKjN2+IX8lgImuncjBsPlyc1pFQQlsgU7ektMlJS4UEoXIp5V5ihyCeTEV3xk4tWQyBoLCqET6JQx2QXqtYHnr0xLMFIkNWSkkVzl2+u9R1d3yoCboXUGh/Dx1gnwg6xTG6QGBavYo8Xmx3b9/jyM4Di/pZP6ZX5esK48jOwKy+vxszcZy3IZH4O6WECOe/pbbULYx71ilFVrF69ZDGipxuqycij3NFGslaPus0fONXSY9d23ZukuoDlaHrboChT8x4azSVAyCJW1q9giZ/ConW2YBye2kLt38CEIDoIY/ssA+4NHIRANj4biUe7Kc5+U2TionKBy3W1fq7DV8odudt4HZePLjdBDtJIyiBkqi+Msx8OgUDzuko30KIHleMAVb2VxlQvqQZNPCf4RQ7XF3swTk6zHf3HsBqbJnFgv93LCynWSSeVw8heIqOAehnBJEG7cHJAPpjaIPMzZ2dZE+GcsLJ8FWSjv8RZrHS9CK76pS+mLO1N+4Pem7vGNtM5VPurpiT3ZAlaSScWrM83PcyjMlHz9XGVliliJa7+FxmNMqtDAmhLSYnHZhSFtyBQnn9fHeqGalJwo0+uas8n5Mi0XxOH740DvnRw=    
+    on:
+      tags: false
+      branch: master
+      condition: $TRAVIS_PYTHON_VERSION = "3.6"
+  - provider: releases
+    skip_cleanup: true
+    api_key:
+      secure: hi0WVD2hzcvk3NZ9piQ7o4WnXiVeQl2IAMC4aw3sf2tUZ6lMhBVZMqrr31Q5GhB3znv/ymF/8pseTGlPS6hO6bgTwTNMx1Z5lQommJTAZddfCnfICvfyZc4JAWoTdDeK6/zz6Sq8aApjVBh57eb0qbYm1s4uCVCL+GSHAu4ieBci4UNkO/OeIe/U+otZtuUwRXGVyGILNnqdxGIRy5IkfcgNRKM0fJYoYkwtYIbGfbctK2YpluCzBuuHPaZyCyM1f5cN3AWQPnDmgL7SO0pACEXgGGCD1qDNgdaFv058DzRQiB76qRW80VqCysUxqTTSddc2diFU5anmAgwrTsJdgiLHc3tw9uElUcoFkPk4txTs3HqGncWjG/6IQoBeGk+m6NW3ioYKxfb0f1cnqN84P3KJWH+FtRSXnVZV0/5Nxx24tjUm9Bwf2xsrr7HoMvpWh6E9NJoBVML/Ad0Nk++NDbTrdustzge6D7fgZF6UHJxDeobYbf7ST5d982wJ9yw7yBmuVq+irlY4rlMGLubz7wc0Oy2aDT8MmpK9urtfi1teZlvcfLeujGhqI/gs6QnnlZpamMlhb6ME30wTgh4NiBnL0Ggar/bflYUBmnZy4BeEQsHnUornjaGxGr4Gb1oO5F32CCWGRK93KSoRY1pIxVyCgKAwb+6EWL0HdnTiwh8=
+    file_glob: true
+    file: dist/*
+    on:
+      tags: false
+      branch: master
+      repo: eduardomourar/python-functionapprest
+      condition: $TRAVIS_PYTHON_VERSION = "3.6"
