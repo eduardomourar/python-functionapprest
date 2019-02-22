@@ -4,6 +4,8 @@
 
 Python routing mini-framework for [MS Azure Functions](https://azure.microsoft.com/en-us/services/functions/) with optional JSON-schema validation.
 
+** This repository is based heavily on [lambdarest project](https://github.com/trustpilot/python-lambdarest)
+
 ### Features
 
 * `functionapp_handler` function constructor with built-in dispatcher

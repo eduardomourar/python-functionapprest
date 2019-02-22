@@ -2,11 +2,13 @@
 import json
 import os
 import logging
+import re
 import functools
 
 from datetime import datetime, date
 from jsonschema import validate, ValidationError, FormatChecker
 from werkzeug.routing import Map, Rule, NotFound
+from werkzeug.urls import url_parse
 from azure.functions import HttpRequest, HttpResponse, Context
 
 
@@ -15,7 +17,8 @@ __required_keys = ['method', 'url']
 __default_headers = {
     'Access-Control-Allow-Headers': '*',
     'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
 }
 
 
@@ -82,30 +85,31 @@ class Request(HttpRequest):
 
     def __init__(self,
                  method: str,
-                 url: str, *,
-                 headers: dict = {},
-                 params: dict = {},
-                 route_params: dict = {},
-                 json: dict = {},
-                 context: object = {},
-                 proxy: bool = False,
-                 body) -> None:
-        self.__method = method
-        self.__url = url
-        self.__headers = headers or {}
-        self.__params = params or {}
-        self.__route_params = route_params or {}
-        self.__body_bytes = body
-        self.__json = json or {}
-        self.__context = context or {}
-        self.__proxy = proxy or False
+                 url: str,
+                 request: HttpRequest = None,
+                 *args, **kwargs) -> None:
+        self.method = method
+        self.url = url
+        if request is not None:
+            kwargs = request.__dict__
+            class_name = type(request).__name__
+            self.headers = kwargs.get(f"_{class_name}__headers")
+            self.params = kwargs.get(f"_{class_name}__params")
+            self.route_params = kwargs.get(f"_{class_name}__route_params")
+            self.__body_bytes = kwargs.get(f"_{class_name}__body_bytes")
+        else:
+            self.headers = kwargs.get('headers')
+            self.params = kwargs.get('params')
+            self.route_params = kwargs.get('route_params')
+            if kwargs.get('body') is not None:
+                self.set_body(kwargs.get('body'))
+            else:
+                self.__body_bytes = b''
+        self.__json = kwargs.get('json') or {}
+        self.__context = kwargs.get('context') or {}
+        self.__proxy = kwargs.get('proxy') or False
 
         self.__charset = 'utf-8'
-
-        if body is not None:
-            self.set_body(body)
-        else:
-            self.__body_bytes = b''
 
     @property
     def method(self) -> str:
@@ -128,7 +132,7 @@ class Request(HttpRequest):
         return self.__headers
 
     @headers.setter
-    def headers(self, val: dict):
+    def headers(self, val: dict = {}):
         self.__headers = val
 
     @property
@@ -136,7 +140,7 @@ class Request(HttpRequest):
         return self.__params
 
     @params.setter
-    def params(self, val: dict):
+    def params(self, val: dict = {}):
         self.__params = val
 
     @property
@@ -144,7 +148,7 @@ class Request(HttpRequest):
         return self.__route_params
 
     @route_params.setter
-    def route_params(self, val: dict):
+    def route_params(self, val: dict = {}):
         self.__route_params = val
 
     @property
@@ -183,7 +187,7 @@ class Request(HttpRequest):
 
         if not isinstance(body, (bytes, bytearray)):
             raise TypeError(
-                f'reponse is expected to be either of '
+                f"reponse is expected to be either of "
                 f"str, bytes, or bytearray, got {type(body).__name__}")
 
         self.__body_bytes = bytes(body)
@@ -196,13 +200,13 @@ class Response(HttpResponse):
     if no headers are specified, empty dict is returned
     """
 
-    def __init__(self, body=None, status_code=None, headers=None):
+    def __init__(self, body=None, status_code=None, headers=None, *,
+                 mimetype='application/json', charset='utf-8'):
+        self.json = None
         if isinstance(body, dict):
             self.json = body
             body = json.dumps(body, default=_json_serial)
-        else:
-            self.json = None
-        super(Response, self).__init__(body, status_code=status_code, headers=headers)
+        super(Response, self).__init__(body, status_code=status_code, headers=headers, mimetype=mimetype, charset=charset)
 
     def get_body_string(self) -> str:
         """Response body as a string."""
@@ -233,12 +237,12 @@ def _float_cast(value):
 
 def _load_function_json(context: FunctionsContext):
     try:
-        json_path = os.path.join(context.function_directory, f'function.json')
+        json_path = os.path.join(context.function_directory, 'function.json')
         with open(json_path, 'r') as file_fd:
             function_json = json.load(file_fd)
-        for binding in function_json.bindings:
-            if binding.get('type') == 'httpTrigger' and binding.get('direction') == 'in':
-                return binding
+            for binding in function_json.get('bindings'):
+                if binding.get('type') == 'httpTrigger' and binding.get('direction') == 'in':
+                    return binding
     except Exception as err:
         logging.info(err)
         pass
@@ -262,7 +266,7 @@ def _json_load_query(query):
             for key, value in query.items()}
 
 
-def _options_response(request: Request, context: FunctionsContext = None):
+def _options_response(req: Request, context: FunctionsContext = None):
     # Have to send all possibilities until we can find all methods for a path in Azure Functions
     # methods = context.bindings.get('methods') or ['options']
     methods = ['options', 'get', 'post', 'put', 'delete']
@@ -275,7 +279,7 @@ def _options_response(request: Request, context: FunctionsContext = None):
     headers.update({
         'Access-Control-Allow-Methods': allowed_methods
     })
-    return (body, 200, headers)
+    return Response(body, 200, headers)
 
 
 def default_error_handler(error, method):
@@ -292,7 +296,7 @@ def create_functionapp_handler(error_handler=default_error_handler):
     example:
         functionapp_handler = create_functionapp_handler()
         functionapp_handler.handle('get')
-        def my_get_func(event):
+        def my_get_func(req):
             pass
 
     inner_functionapp_handler:
@@ -309,29 +313,35 @@ def create_functionapp_handler(error_handler=default_error_handler):
     """
     url_maps = Map()
 
-    def inner_functionapp_handler(event: Request, context: FunctionsContext = None):
+    def inner_functionapp_handler(req: Request, context: FunctionsContext):
         # check if running as Azure Functions
-        if not isinstance(event, (HttpRequest, Request)):
+        if not isinstance(req, (HttpRequest, Request)):
             message = 'Bad request, maybe not using azure functions?'
             logging.error(message)
-            return Response(message, 500).to_json()
+            return Response(message, 500)
 
-        # Save context within event for easy access
-        event.context = context
+        req = Request(req.method, req.url, request=req)
 
-        path = event.url
-        if path:
-            path = path.split('?')[0]
+        # Save context within req for easy access
+        context.bindings = _load_function_json(context)
+        req.context = context
+
+        path = '/'
+        url = req.url
+        if url:
+            path = re.sub(r"\/api\/(v(\d+\.)?(\*|\d+)\/)?", '/', url_parse(url).path, flags=re.IGNORECASE)
 
         route = context.bindings.get('route', path)
 
         # Proxy is missing route parameters. For now, we will just flag it
-        if event.route_params and 'restOfPath' in event.route_params:
-            event.proxy = route
+        if req.route_params and 'restOfPath' in req.route_params:
+            req.proxy = route
         else:
-            event.proxy = None
+            req.proxy = None
 
-        method_name = event.method.lower()
+        method_name = req.method.lower()
+        if method_name == 'options':
+            return _options_response(req, context)
         func = None
         kwargs = {}
         error_tuple = ('Internal server error', 500)
@@ -345,8 +355,8 @@ def create_functionapp_handler(error_handler=default_error_handler):
             # if this is a catch-all rule, don't send any kwargs
             if rule.rule == '/<path:path>':
                 kwargs = {}
-            if event.proxy is not None:
-                event.route_params = kwargs
+            if req.proxy is not None:
+                req.route_params = kwargs
         except NotFound as e:
             logging.warning(logging_message.format(
                 status_code=404, message=str(e)))
@@ -354,7 +364,7 @@ def create_functionapp_handler(error_handler=default_error_handler):
 
         if func:
             try:
-                response = func(event, context, **kwargs)
+                response = func(req, **kwargs)
                 if not isinstance(response, Response):
                     # Set defaults
                     status_code = headers = None
@@ -372,7 +382,7 @@ def create_functionapp_handler(error_handler=default_error_handler):
                     else:  # if response is string, dict, etc.
                         body = response
                     response = Response(body, status_code, headers)
-                return response.to_json()
+                return response
 
             except ValidationError as error:
                 error_description = "Schema[{}] with value {}".format(
@@ -388,7 +398,7 @@ def create_functionapp_handler(error_handler=default_error_handler):
                     raise
 
         body, status_code = error_tuple
-        return Response(body, status_code).to_json()
+        return Response(body, status_code)
 
     def inner_handler(method_name, path='/', schema=None, load_json=True):
         if schema and not load_json:
@@ -397,29 +407,20 @@ def create_functionapp_handler(error_handler=default_error_handler):
 
         def wrapper(func):
             @functools.wraps(func)
-            def inner(request: Request, context: FunctionsContext, *args, **kwargs):
-                event = request
-                if context:
-                    context.bindings = _load_function_json(context)
-                method_req = event.method.lower()
-                if method_req == 'options':
-                    response = _options_response(event, context)
-                else:
-                    if load_json:
-                        json_data = {
-                            'body': event.get_json() if event.get_body() else {},
-                            'query': _json_load_query(
-                                event.params
-                            )
-                        }
-                        event.json = json_data
-                        if schema:
-                            # jsonschema.validate using given schema
-                            validate(json_data, schema, **__validate_kwargs)
+            def inner(req: Request, *args, **kwargs):
+                if load_json:
+                    json_data = {
+                        'body': req.get_json() if req.get_body() else {},
+                        'query': _json_load_query(
+                            req.params
+                        )
+                    }
+                    req.json = json_data
+                    if schema:
+                        # jsonschema.validate using given schema
+                        validate(json_data, schema, **__validate_kwargs)
 
-                    response = func(event, *args, **kwargs)
-
-                return response
+                return func(req, *args, **kwargs)
 
             # if this is a catch all url, make sure that it's setup correctly
             if path == '*':

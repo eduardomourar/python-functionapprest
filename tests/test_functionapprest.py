@@ -23,12 +23,7 @@ def assert_called_once(mock):
 
 class TestfunctionapprestFunctions(unittest.TestCase):
     def setUp(self):
-        self.event = Request('POST', '/',
-            headers=None,
-            params=None,
-            route_params=None,
-            body=None,
-        )
+        self.event = Request('POST', 'http://localhost:7071/api/v1/')
         self.context = FunctionsContext(
             function_directory='/home/serverless/products-list',
             function_name='products-list',
@@ -77,7 +72,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
 
         post_mock = mock.Mock(return_value='foo')
         self.functionapp_handler.handle('post')(post_mock)  # decorate mock
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '"foo"', 'status_code': 200, 'headers': {}}
         # post_mock.assert_called_with(assert_event)  # not working for now
 
@@ -112,7 +107,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         post_mock = mock.Mock(return_value='foo')
         self.functionapp_handler.handle(
             'post', schema=post_schema)(post_mock)  # decorate mock
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '"foo"', 'status_code': 200, 'headers': {}}
         # post_mock.assert_called_with(assert_event)  # not working for now
 
@@ -146,7 +141,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         post_mock = mock.Mock(return_value='foo')
         self.functionapp_handler.handle('post', schema=post_schema)(
             post_mock)  # decorate mock
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '"Validation Error"',
                           'status_code': 400, 'headers': {}}
 
@@ -159,7 +154,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
 
         post_mock = mock.Mock(return_value='foo')
         self.functionapp_handler.handle('post')(post_mock)  # decorate mock
-        result = self.functionapp_handler(event, self.context)
+        result = self.functionapp_handler(event, self.context).to_json()
         assert result == {
             'body': '"Bad request, maybe not using azure functions?"',
             'status_code': 500,
@@ -213,13 +208,13 @@ class TestfunctionapprestFunctions(unittest.TestCase):
             }
         }
         self.functionapp_handler.handle('post', schema=post_schema)(post_mock)  # decorate mock
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '"foobar"', 'status_code': 200, 'headers': {}}
 
     def test_that_it_works_without_body_or_query_parameters(self):
         post_mock = mock.Mock(return_value='foo')
         self.functionapp_handler.handle('post')(post_mock)  # decorate mock
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '"foo"', 'headers': {}, 'status_code': 200}
 
     def test_that_specified_path_works(self):
@@ -235,14 +230,14 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         self.functionapp_handler.handle('get', path='/bar/foo')(get_mock2)  # decorate mock
 
         self.event.url = '/foo/bar'
-        result1 = self.functionapp_handler(self.event, self.context)
+        result1 = self.functionapp_handler(self.event, self.context).to_json()
         assert result1 == {
             'body': '"foo"',
             'status_code': 200,
             'headers': {}}
 
         self.event.url = '/bar/foo'
-        result2 = self.functionapp_handler(self.event, self.context)
+        result2 = self.functionapp_handler(self.event, self.context).to_json()
         assert result2 == {
             'body': '"bar"',
             'status_code': 200,
@@ -260,7 +255,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
 
         self.context.bindings['route'] = '/v1/foo/bar'
         self.event.url = '/foo/bar'
-        result1 = self.functionapp_handler(self.event, self.context)
+        result1 = self.functionapp_handler(self.event, self.context).to_json()
         assert result1 == {
             'body': '"foo"',
             'status_code': 200,
@@ -278,14 +273,14 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         self.functionapp_handler.handle('get', path='/foo/bar/<string:foo>')(test_wordcase)  # decorate mock
 
         self.event.url = '/foo/bar/foobar'
-        result1 = self.functionapp_handler(self.event, self.context)
+        result1 = self.functionapp_handler(self.event, self.context).to_json()
         assert result1 == {
             'body': '"foobar"',
             'status_code': 200,
             'headers': {}}
 
         self.event.url = '/foo/bar/FOOBAR'
-        result2 = self.functionapp_handler(self.event, self.context)
+        result2 = self.functionapp_handler(self.event, self.context).to_json()
         assert result2 == {
             'body': '"FOOBAR"',
             'status_code': 200,
@@ -307,7 +302,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
             'restOfPath': 'foo1/bar2'
         }
         self.event.url = '/foo/foo1/bar2'
-        result1 = self.functionapp_handler(self.event, self.context)
+        result1 = self.functionapp_handler(self.event, self.context).to_json()
         assert result1 == {
             'body': '"foo1_bar2"',
             'status_code': 200,
@@ -329,7 +324,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         for i in range(10):
             # test with a non-deterministic path
             self.event.url = "/foo/{}/".format(random.choice(r))
-            result = self.functionapp_handler(self.event, self.context)
+            result = self.functionapp_handler(self.event, self.context).to_json()
             assert result == {
                 'body': '"foo"',
                 'status_code': 200,
@@ -352,7 +347,7 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             self.functionapp_handler(self.event, self.context)
 
-    def test_routing_with_function_decorator(self):
+    def test_routing_with_multiple_decorators(self):
         json_body = {}
 
         self.event.set_body(json.dumps(json_body))
@@ -360,10 +355,11 @@ class TestfunctionapprestFunctions(unittest.TestCase):
 
         self.functionapp_handler = create_functionapp_handler(error_handler=None)
 
-        @self.functionapp_handler.handle('get', path='/foo/<int:id>/')
         def test_routing(event, id):
             return {'my-id': id}
 
+        self.functionapp_handler.handle('get', path='/foo/<int:id>/')(test_routing)
+        self.functionapp_handler.handle('options', path='/foo/<int:id>/')(test_routing)
         self.event.url = '/foo/1234/'
-        result = self.functionapp_handler(self.event, self.context)
+        result = self.functionapp_handler(self.event, self.context).to_json()
         assert result == {'body': '{"my-id": 1234}', 'status_code': 200, 'headers':{}}
