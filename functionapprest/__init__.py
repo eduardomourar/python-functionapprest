@@ -87,7 +87,7 @@ class Request(HttpRequest):
                  method: str,
                  url: str,
                  request: HttpRequest = None,
-                 *args, **kwargs) -> None:
+                 **kwargs) -> None:
         self.method = method
         self.url = url
         if request is not None:
@@ -132,7 +132,9 @@ class Request(HttpRequest):
         return self.__headers
 
     @headers.setter
-    def headers(self, val: dict = {}):
+    def headers(self, val: dict = None):
+        if val is None:
+            val = dict()
         self.__headers = val
 
     @property
@@ -140,7 +142,9 @@ class Request(HttpRequest):
         return self.__params
 
     @params.setter
-    def params(self, val: dict = {}):
+    def params(self, val: dict = None):
+        if val is None:
+            val = dict()
         self.__params = val
 
     @property
@@ -148,7 +152,9 @@ class Request(HttpRequest):
         return self.__route_params
 
     @route_params.setter
-    def route_params(self, val: dict = {}):
+    def route_params(self, val: dict = None):
+        if val is None:
+            val = dict()
         self.__route_params = val
 
     @property
@@ -156,7 +162,9 @@ class Request(HttpRequest):
         return self.__json
 
     @json.setter
-    def json(self, val: dict):
+    def json(self, val: dict = None):
+        if val is None:
+            val = dict()
         self.__json = val
 
     @property
@@ -164,7 +172,9 @@ class Request(HttpRequest):
         return self.__context
 
     @context.setter
-    def context(self, val: object):
+    def context(self, val: object = None):
+        if val is None:
+            val = {}
         self.__context = val
 
     @property
