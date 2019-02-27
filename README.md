@@ -1,6 +1,6 @@
 # functionapprest
 
-[![Build Status](http://travis-ci.org/trustpilot/python-functionapprest.svg?branch=master)](https://travis-ci.org/trustpilot/python-functionapprest)  [![Latest Version](https://img.shields.io/pypi/v/functionapprest.svg)](https://pypi.python.org/pypi/functionapprest) [![Python Support](https://img.shields.io/pypi/pyversions/functionapprest.svg)](https://pypi.python.org/pypi/functionapprest)
+[![Build Status](https://travis-ci.com/eduardomourar/python-functionapprest.svg?branch=master)](https://travis-ci.com/eduardomourar/python-functionapprest) [![Latest Version](https://img.shields.io/pypi/v/functionapprest.svg)](https://pypi.python.org/pypi/functionapprest) [![Python Support](https://img.shields.io/pypi/pyversions/functionapprest.svg)](https://pypi.python.org/pypi/functionapprest)
 
 Python routing mini-framework for [MS Azure Functions](https://azure.microsoft.com/en-us/services/functions/) with optional JSON-schema validation.
 
@@ -112,6 +112,56 @@ def my_own_get(event, path):
     return {'path': path}
 ```
 
+## Using within Function App
+
+**function.json**
+
+```json
+{
+  "scriptFile": "handler.py",
+  "bindings": [
+    {
+      "authLevel": "anonymous",
+      "type": "httpTrigger",
+      "direction": "in",
+      "name": "req",
+      "methods": [
+        "get"
+      ],
+      "route": "products/{product_id}"
+    },
+    {
+      "type": "http",
+      "direction": "out",
+      "name": "$return"
+    }
+  ]
+}
+```
+
+**handler.py**
+
+```python
+from functionapprest import functionapp_handler, Request
+
+@functionapp_handler.handle('get', path='/products/<path:product_id>/')
+def list_products(req: Request, product_id):
+    query = req.json.get('query', {})
+    body = req.json.get('body', {})
+    headers = req.get('headers', {})
+    params = req.get('params', {})
+    response = {
+        'method': req.method,
+        'url': req.url,
+        'headers': headers,
+        'params': params,
+        'query': query,
+        'body': body
+    }
+    return response
+
+main = functionapp_handler
+```
 
 ## Tests
 

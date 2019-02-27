@@ -17,8 +17,7 @@ __required_keys = ['method', 'url']
 __default_headers = {
     'Access-Control-Allow-Headers': '*',
     'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
+    'Content-Type': 'application/json'
 }
 
 
@@ -90,24 +89,20 @@ class Request(HttpRequest):
                  **kwargs) -> None:
         self.method = method
         self.url = url
-        if request is not None:
-            kwargs = request.__dict__
-            class_name = type(request).__name__
-            self.headers = kwargs.get(f"_{class_name}__headers")
-            self.params = kwargs.get(f"_{class_name}__params")
-            self.route_params = kwargs.get(f"_{class_name}__route_params")
-            self.__body_bytes = kwargs.get(f"_{class_name}__body_bytes")
+        if request is not None and isinstance(request, HttpRequest):
+            self.headers = request.headers
+            self.params = request.params
+            self.route_params = request.route_params
+            body = request.get_body()
         else:
             self.headers = kwargs.get('headers')
             self.params = kwargs.get('params')
             self.route_params = kwargs.get('route_params')
-            if kwargs.get('body') is not None:
-                self.set_body(kwargs.get('body'))
-            else:
-                self.__body_bytes = b''
-        self.__json = kwargs.get('json') or {}
-        self.__context = kwargs.get('context') or {}
-        self.__proxy = kwargs.get('proxy') or False
+            body = kwargs.get('body', b'')
+        self.set_body(body or b'')
+        self.__json = kwargs.get('json', {})
+        self.__context = kwargs.get('context', {})
+        self.__proxy = kwargs.get('proxy', None)
 
         self.__charset = 'utf-8'
 
@@ -178,17 +173,17 @@ class Request(HttpRequest):
         self.__context = val
 
     @property
-    def proxy(self) -> bool:
+    def proxy(self) -> str:
         return self.__proxy
 
     @proxy.setter
-    def proxy(self, val: bool):
+    def proxy(self, val: str):
         self.__proxy = val
 
     def get_body(self) -> bytes:
         return self.__body_bytes
 
-    def get_json(self) -> object:
+    def get_json(self):
         return json.loads(self.__body_bytes.decode())
 
     def set_body(self, body):
@@ -197,7 +192,7 @@ class Request(HttpRequest):
 
         if not isinstance(body, (bytes, bytearray)):
             raise TypeError(
-                f"reponse is expected to be either of "
+                f"response is expected to be either of "
                 f"str, bytes, or bytearray, got {type(body).__name__}")
 
         self.__body_bytes = bytes(body)
@@ -213,7 +208,7 @@ class Response(HttpResponse):
     def __init__(self, body=None, status_code=None, headers=None, *,
                  mimetype='application/json', charset='utf-8'):
         self.json = None
-        if isinstance(body, dict):
+        if isinstance(body, (dict, list)):
             self.json = body
             body = json.dumps(body, default=_json_serial)
         super(Response, self).__init__(body, status_code=status_code, headers=headers, mimetype=mimetype, charset=charset)
@@ -276,11 +271,14 @@ def _json_load_query(query):
             for key, value in query.items()}
 
 
-def _options_response(req: Request, context: FunctionsContext = None):
-    # Have to send all possibilities until we can find all methods for a path in Azure Functions
-    # methods = context.bindings.get('methods') or ['options']
-    methods = ['options', 'get', 'post', 'put', 'delete']
-    allowed_methods = ','.join(methods)
+def _options_response(req: Request, methods: list):
+    if not methods:
+        methods = req.context['bindings'].get('methods', [])
+    if 'OPTIONS' in methods:
+        methods.remove('OPTIONS')
+    if 'HEAD' in methods:
+        methods.remove('HEAD')
+    allowed_methods = ','.join(sorted(methods, key=str.upper))
     allowed_methods = allowed_methods.upper()
     body = {
         'allow': allowed_methods
@@ -330,7 +328,9 @@ def create_functionapp_handler(error_handler=default_error_handler):
             logging.error(message)
             return Response(message, 500)
 
-        req = Request(req.method, req.url, request=req)
+        # Casting from Azure HttpRequest to our Request implementation
+        if isinstance(req, HttpRequest):
+            req = Request(req.method, req.url, request=req)
 
         # Save context within req for easy access
         context.bindings = _load_function_json(context)
@@ -350,8 +350,6 @@ def create_functionapp_handler(error_handler=default_error_handler):
             req.proxy = None
 
         method_name = req.method.lower()
-        if method_name == 'options':
-            return _options_response(req, context)
         func = None
         kwargs = {}
         error_tuple = ('Internal server error', 500)
@@ -359,6 +357,8 @@ def create_functionapp_handler(error_handler=default_error_handler):
         try:
             # bind the mapping to an empty server name
             mapping = url_maps.bind('')
+            if method_name == 'options':
+                return _options_response(req, mapping.allowed_methods(path))
             rule, kwargs = mapping.match(path, method=method_name, return_rule=True)
             func = rule.endpoint
 
