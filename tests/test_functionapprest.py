@@ -142,8 +142,10 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         self.functionapp_handler.handle('post', schema=post_schema)(
             post_mock)  # decorate mock
         result = self.functionapp_handler(self.event, self.context).to_json()
-        assert result == {'body': '"Validation Error"',
-                          'status_code': 400, 'headers': {}}
+        assert result == {
+            'body': '{"statusCode": 404, "message": "Validation Error: Schema[properties][body][properties][my_integer][type] with value \'this is not an integer\' is not of type \'integer\'"}',
+            'status_code': 400,
+            'headers': {}}
 
     def test_that_it_returns_bad_request_if_not_given_functionapp_proxy_input(self):
         json_body = dict(

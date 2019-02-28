@@ -290,12 +290,16 @@ def _options_response(req: Request, methods: list):
     return Response(body, 200, headers)
 
 
-def default_error_handler(error, method):
+def default_error_handler(error, method: str):
     logging_message = "[%s][{status_code}]: {message}" % method
     logging.exception(logging_message.format(
         status_code=500,
         message=str(error)
     ))
+    return ({
+        'statusCode': 500,
+        'message': str(error),
+    }, 500)
 
 
 def create_functionapp_handler(error_handler=default_error_handler):
@@ -352,7 +356,10 @@ def create_functionapp_handler(error_handler=default_error_handler):
         method_name = req.method.lower()
         func = None
         kwargs = {}
-        error_tuple = ('Internal server error', 500)
+        error_tuple = ({
+            'statusCode': 500,
+            'message': 'Internal server error',
+        }, 500)
         logging_message = "[%s][{status_code}]: {message}" % method_name
         try:
             # bind the mapping to an empty server name
@@ -365,12 +372,15 @@ def create_functionapp_handler(error_handler=default_error_handler):
             # if this is a catch-all rule, don't send any kwargs
             if rule.rule == '/<path:path>':
                 kwargs = {}
-            if req.proxy is not None:
-                req.route_params = kwargs
+            # if req.proxy is not None:
+            #     req.route_params = kwargs
         except NotFound as e:
             logging.warning(logging_message.format(
                 status_code=404, message=str(e)))
-            error_tuple = (str(e), 404)
+            error_tuple = ({
+                'statusCode': 404,
+                'message': str(e),
+            }, 404)
 
         if func:
             try:
@@ -399,11 +409,14 @@ def create_functionapp_handler(error_handler=default_error_handler):
                     ']['.join(error.absolute_schema_path), error.message)
                 logging.warning(logging_message.format(
                     status_code=400, message=error_description))
-                error_tuple = ('Validation Error', 400)
+                error_tuple = ({
+                    'statusCode': 404,
+                    'message': f"Validation Error: {error_description}",
+                }, 400)
 
             except Exception as error:
                 if error_handler:
-                    error_handler(error, method_name)
+                    error_tuple = error_handler(error, method_name)
                 else:
                     raise
 
