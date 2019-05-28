@@ -3,12 +3,15 @@ try:
 except ImportError:
     import mock
 
+import os
 import unittest
 import json
 import copy
 import random
-from datetime import datetime
 import time
+
+from datetime import datetime
+from test.support import EnvironmentVarGuard
 
 from functionapprest import create_functionapp_handler, Request, FunctionsContext
 
@@ -21,7 +24,7 @@ def assert_called_once(mock):
     assert mock.call_count == 1
 
 
-class TestfunctionapprestFunctions(unittest.TestCase):
+class TestFunctions(unittest.TestCase):
     def setUp(self):
         self.event = Request('POST', 'http://localhost:7071/api/v1/')
         self.context = FunctionsContext(
@@ -30,7 +33,9 @@ class TestfunctionapprestFunctions(unittest.TestCase):
             invocation_id='c9b749e6-0611-4b651-9ff0-cdd2da18f05b',
             bindings={}
         )
-        self.functionapp_handler = create_functionapp_handler()
+        self.env = mock.patch.dict('os.environ', {'AZURE_FUNCTIONS_ENVIRONMENT': 'production'})
+        with self.env:
+            self.functionapp_handler = create_functionapp_handler(headers=None)
 
     def test_post_validation_success(self):
         json_body = dict(
@@ -343,7 +348,8 @@ class TestfunctionapprestFunctions(unittest.TestCase):
         def divide_by_zero(_):
             return 1/0
 
-        self.functionapp_handler = create_functionapp_handler(error_handler=None)
+        with self.env:
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=None)
         self.functionapp_handler.handle('get', path='/foo/bar')(divide_by_zero)
 
         with self.assertRaises(ZeroDivisionError):
@@ -354,14 +360,64 @@ class TestfunctionapprestFunctions(unittest.TestCase):
 
         self.event.set_body(json.dumps(json_body))
         self.event.method = 'GET'
+        headers = {
+            'content-type': 'application/json',
+            'access-control-allow-origin': '*'
+        }
 
-        self.functionapp_handler = create_functionapp_handler(error_handler=None)
+        with self.env:
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=None)
 
         def test_routing(event, id):
-            return {'my-id': id}
+            return ({'my-id': id}, 200, headers)
 
         self.functionapp_handler.handle('get', path='/foo/<int:id>/')(test_routing)
         self.functionapp_handler.handle('options', path='/foo/<int:id>/')(test_routing)
         self.event.url = '/foo/1234/'
         result = self.functionapp_handler(self.event, self.context).to_json()
-        assert result == {'body': '{"my-id": 1234}', 'status_code': 200, 'headers':{}}
+        assert result == {'body': '{"my-id": 1234}', 'status_code': 200, 'headers': headers}
+
+    def test_default_header_in_development(self):
+        json_body = {}
+
+        self.event.set_body(json.dumps(json_body))
+        self.event.method = 'GET'
+        headers = {
+            'access-control-allow-headers': '*',
+            'content-type': 'application/json',
+            'access-control-allow-origin': '*'
+        }
+
+        with mock.patch.dict('os.environ', {'AZURE_FUNCTIONS_ENVIRONMENT': 'development'}):
+            environ = os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', '')
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=headers)
+
+        def test_env_development(event):
+            return environ
+
+        self.functionapp_handler.handle('get', path='/foo/')(test_env_development)
+        self.event.url = '/foo/'
+        result = self.functionapp_handler(self.event, self.context).to_json()
+        assert result == {'body': '"development"', 'status_code': 200, 'headers': headers}
+
+    def test_default_header_in_production(self):
+        json_body = {}
+
+        self.event.set_body(json.dumps(json_body))
+        self.event.method = 'GET'
+        headers = {
+            'access-control-allow-headers': '*',
+            'content-type': 'application/json'
+        }
+
+        with mock.patch.dict('os.environ', {'AZURE_FUNCTIONS_ENVIRONMENT': 'production'}):
+            environ = os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', '')
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=headers)
+
+        def test_env_production(event):
+            return environ
+
+        self.functionapp_handler.handle('get', path='/bar/')(test_env_production)
+        self.event.url = '/bar/'
+        result = self.functionapp_handler(self.event, self.context).to_json()
+        assert result == {'body': '"production"', 'status_code': 200, 'headers': headers}

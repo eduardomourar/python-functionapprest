@@ -12,7 +12,7 @@ with io.open('README.md', 'r') as fh:
 requirements = [
     'jsonschema>=2.5.1',
     'strict_rfc3339>=0.7',
-    'azure-functions==1.0.0b3',
+    'azure-functions>=1.0.0b3',
     'werkzeug>=0.14.1',
 ]
 

@@ -10,13 +10,13 @@ from jsonschema import validate, ValidationError, FormatChecker
 from werkzeug.routing import Map, Rule, NotFound
 from werkzeug.urls import url_parse
 from azure.functions import HttpRequest, HttpResponse, Context
+from azure.functions._http import HttpResponseHeaders
 
 
 __validate_kwargs = {'format_checker': FormatChecker()}
 __required_keys = ['method', 'url']
 __default_headers = {
     'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json'
 }
 
@@ -198,40 +198,6 @@ class Request(HttpRequest):
         self.__body_bytes = bytes(body)
 
 
-class Response(HttpResponse):
-    """Class to conceptualize a response with default attributes
-    if no body is specified, empty string is returned
-    if no status_code is specified, 200 is returned
-    if no headers are specified, empty dict is returned
-    """
-
-    def __init__(self, body=None, status_code=None, headers=None, *,
-                 mimetype='application/json', charset='utf-8'):
-        self.json = None
-        if isinstance(body, (dict, list)):
-            self.json = body
-            body = json.dumps(body, default=_json_serial)
-        super(Response, self).__init__(body, status_code=status_code, headers=headers, mimetype=mimetype, charset=charset)
-
-    def get_body_string(self) -> str:
-        """Response body as a string."""
-
-        body = self.json
-        if body is None:
-            body_bytes = self.get_body() or b''
-            body = body_bytes.decode(self.charset)
-        if body:
-            return json.dumps(body, default=_json_serial)
-        return ''
-
-    def to_json(self):
-        return {
-            'body': self.get_body_string(),
-            'status_code': self.status_code or 200,
-            'headers': self.headers or {}
-        }
-
-
 def _float_cast(value):
     try:
         return float(value)
@@ -283,11 +249,10 @@ def _options_response(req: Request, methods: list):
     body = {
         'allow': allowed_methods
     }
-    headers = __default_headers
-    headers.update({
+    headers = {
         'Access-Control-Allow-Methods': allowed_methods
-    })
-    return Response(body, 200, headers)
+    }
+    return (body, 200, headers)
 
 
 def default_error_handler(error, method: str):
@@ -302,7 +267,7 @@ def default_error_handler(error, method: str):
     }, 500)
 
 
-def create_functionapp_handler(error_handler=default_error_handler):
+def create_functionapp_handler(error_handler=default_error_handler, headers=__default_headers):
     """Create a functionapp handler function with `handle` decorator as attribute
 
     example:
@@ -324,6 +289,47 @@ def create_functionapp_handler(error_handler=default_error_handler):
     JSON schema, please see http://json-schema.org for info.
     """
     url_maps = Map()
+    default_headers = HttpResponseHeaders(headers or {})
+    if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', 'production').lower() in ('dev', 'development'):
+        default_headers.update({
+            'Access-Control-Allow-Origin': '*'
+        })
+
+    class Response(HttpResponse):
+        """Class to conceptualize a response with default attributes
+        if no body is specified, empty string is returned
+        if no status_code is specified, 200 is returned
+        if no headers are specified, empty dict is returned
+        """
+
+        def __init__(self, body=None, status_code=None, headers={}, *,
+                    mimetype='application/json', charset='utf-8'):
+            self.json = None
+            if isinstance(body, (dict, list)):
+                self.json = body
+                body = json.dumps(body, default=_json_serial)
+            original_headers = headers or {}
+            headers = default_headers
+            headers.update(original_headers)
+            super(Response, self).__init__(body, status_code=status_code, headers=headers, mimetype=mimetype, charset=charset)
+
+        def get_body_string(self) -> str:
+            """Response body as a string."""
+
+            body = self.json
+            if body is None:
+                body_bytes = self.get_body() or b''
+                body = body_bytes.decode(self.charset)
+            if body:
+                return json.dumps(body, default=_json_serial)
+            return ''
+
+        def to_json(self):
+            return {
+                'body': self.get_body_string(),
+                'status_code': self.status_code or 200,
+                'headers': dict(self.headers or {})
+            }
 
     def inner_functionapp_handler(req: Request, context: FunctionsContext):
         # check if running as Azure Functions
@@ -365,7 +371,8 @@ def create_functionapp_handler(error_handler=default_error_handler):
             # bind the mapping to an empty server name
             mapping = url_maps.bind('')
             if method_name == 'options':
-                return _options_response(req, mapping.allowed_methods(path))
+                body, status_code, headers = _options_response(req, mapping.allowed_methods(path))
+                return Response(body, status_code, headers)
             rule, kwargs = mapping.match(path, method=method_name, return_rule=True)
             func = rule.endpoint
 
@@ -425,8 +432,7 @@ def create_functionapp_handler(error_handler=default_error_handler):
 
     def inner_handler(method_name, path='/', schema=None, load_json=True):
         if schema and not load_json:
-            raise ValueError(
-                'if schema is supplied, load_json needs to be true')
+            raise ValueError('if schema is supplied, load_json needs to be true')
 
         def wrapper(func):
             @functools.wraps(func)
