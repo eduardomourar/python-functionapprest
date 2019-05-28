@@ -11,7 +11,6 @@ import random
 import time
 
 from datetime import datetime
-from test.support import EnvironmentVarGuard
 
 from functionapprest import create_functionapp_handler, Request, FunctionsContext
 

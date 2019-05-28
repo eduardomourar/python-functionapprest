@@ -16,7 +16,6 @@ from azure.functions._http import HttpResponseHeaders
 __validate_kwargs = {'format_checker': FormatChecker()}
 __required_keys = ['method', 'url']
 __default_headers = {
-    'Access-Control-Allow-Headers': '*',
     'Content-Type': 'application/json'
 }
 
@@ -294,6 +293,7 @@ def create_functionapp_handler(error_handler=default_error_handler, headers=None
     default_headers = HttpResponseHeaders(headers)
     if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', '').lower() in ('dev', 'development'):
         default_headers.update({
+            'Access-Control-Allow-Headers': '*',
             'Access-Control-Allow-Origin': '*'
         })
 
