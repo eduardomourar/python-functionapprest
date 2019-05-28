@@ -267,7 +267,7 @@ def default_error_handler(error, method: str):
     }, 500)
 
 
-def create_functionapp_handler(error_handler=default_error_handler, headers=__default_headers):
+def create_functionapp_handler(error_handler=default_error_handler, headers=None):
     """Create a functionapp handler function with `handle` decorator as attribute
 
     example:
@@ -289,8 +289,10 @@ def create_functionapp_handler(error_handler=default_error_handler, headers=__de
     JSON schema, please see http://json-schema.org for info.
     """
     url_maps = Map()
-    default_headers = HttpResponseHeaders(headers or {})
-    if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', 'production').lower() in ('dev', 'development'):
+    if headers is None:
+        headers = __default_headers
+    default_headers = HttpResponseHeaders(headers)
+    if os.environ.get('AZURE_FUNCTIONS_ENVIRONMENT', '').lower() in ('dev', 'development'):
         default_headers.update({
             'Access-Control-Allow-Origin': '*'
         })
@@ -302,7 +304,7 @@ def create_functionapp_handler(error_handler=default_error_handler, headers=__de
         if no headers are specified, empty dict is returned
         """
 
-        def __init__(self, body=None, status_code=None, headers={}, *,
+        def __init__(self, body=None, status_code=None, headers=None, *,
                     mimetype='application/json', charset='utf-8'):
             self.json = None
             if isinstance(body, (dict, list)):

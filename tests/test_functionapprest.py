@@ -35,7 +35,7 @@ class TestFunctions(unittest.TestCase):
         )
         self.env = mock.patch.dict('os.environ', {'AZURE_FUNCTIONS_ENVIRONMENT': 'production'})
         with self.env:
-            self.functionapp_handler = create_functionapp_handler(headers=None)
+            self.functionapp_handler = create_functionapp_handler(headers={})
 
     def test_post_validation_success(self):
         json_body = dict(
@@ -349,7 +349,7 @@ class TestFunctions(unittest.TestCase):
             return 1/0
 
         with self.env:
-            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=None)
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers={})
         self.functionapp_handler.handle('get', path='/foo/bar')(divide_by_zero)
 
         with self.assertRaises(ZeroDivisionError):
@@ -366,7 +366,7 @@ class TestFunctions(unittest.TestCase):
         }
 
         with self.env:
-            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers=None)
+            self.functionapp_handler = create_functionapp_handler(error_handler=None, headers={})
 
         def test_routing(event, id):
             return ({'my-id': id}, 200, headers)
